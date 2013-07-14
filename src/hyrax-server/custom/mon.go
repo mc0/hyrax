@@ -63,7 +63,15 @@ func CleanConnMon(cid stypes.ConnId) error {
     return err
 }
 
-var monCh chan *types.Command
+var monCh  chan *types.Command
+var pushCh chan *MonPushPayload
+
+// MonPushAlert takes in a monpushpayload that's been made and
+// puts it on the channel to be handled
+func MonPushAlert(pay *MonPushPayload) {
+    //TODO timeout
+    pushCh <- pay
+}
 
 // MonMakeAlert takes in a command that's being performed and sends
 // out alerts to anyone monitoring that command
@@ -71,10 +79,10 @@ func MonMakeAlert(cmd *types.Command) {
     monCh <- cmd
 }
 
-// monPushPayload is the payload for push notifications. It is basically
+// MonPushPayload is the payload for push notifications. It is basically
 // the standard payload object but without the secret, and with a command
 // string field instead
-type monPushPayload struct {
+type MonPushPayload struct {
     Domain  []byte   `json:"domain"`
     Id      []byte   `json:"id"`
     Name    []byte   `json:"name,omitempty"`
@@ -86,20 +94,20 @@ type monPushPayload struct {
 // monHandleAlert takes commands to be alerted and does the alert
 func monHandleAlert(cmd *types.Command) error {
 
-    var pay monPushPayload
+    var pay MonPushPayload
     pay.Domain = cmd.Payload.Domain
     pay.Id = cmd.Payload.Id
     pay.Name = cmd.Payload.Name
     pay.Command = cmd.Command
     pay.Values = cmd.Payload.Values
 
-    return MonDoAlert(&pay)
+    return monDoAlert(&pay)
 
 }
 
-// MonDoAlert actually does the fetching of monitors on a value and
+// monDoAlert actually does the fetching of monitors on a value and
 // and sends them alerts
-func MonDoAlert(pay *monPushPayload) error {
+func monDoAlert(pay *MonPushPayload) error {
     monkey := MonKey(pay.Domain,pay.Id)
     r,err := CmdPretty(SMEMBERS,monkey)
     if err != nil { return err }
@@ -127,8 +135,9 @@ func MonDoAlert(pay *monPushPayload) error {
 }
 
 // init creates a bunch of routines that will read in commands that require alerts
-// and call monHandleAlert on them
+// and call monDoAlert on them
 func init() {
+    //TODO once dist is done get rid of monCh
     monCh = make(chan *types.Command)
 
     for i:=0; i<10; i++ {
@@ -138,6 +147,20 @@ func init() {
                 err := monHandleAlert(cmd)
                 if err != nil {
                     log.Printf("%s when calling monHandleAlert(%v)\n",err.Error(),cmd)
+                }
+            }
+        }()
+    }
+
+    pushCh = make(chan *MonPushPayload,1024)
+
+    for i:=0; i<10; i++ {
+        go func(){
+            for {
+                pay := <-pushCh
+                err := monDoAlert(pay)
+                if err != nil {
+                    log.Printf("%s when calling monDoAlert(%v)\n",err.Error(),pay)
                 }
             }
         }()
