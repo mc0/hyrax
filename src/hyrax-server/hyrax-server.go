@@ -7,6 +7,7 @@ import (
     "hyrax-server/storage"
     "hyrax-server/dispatch"
     "hyrax-server/net"
+    "hyrax-server/dist"
 )
 
 func main() {
@@ -25,6 +26,8 @@ func main() {
     addr := ":"+port
     err = net.TcpListen(addr)
     if err != nil { panic(err); }
+
+    dist.Setup()
 
     select {}
 }

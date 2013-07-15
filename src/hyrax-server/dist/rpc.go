@@ -1,28 +1,40 @@
 package dist
 
 import (
-    "hyrax-server/custom"
+    "net"
+    //"net/http"
+    "net/rpc"
     "log"
 )
 
-// The different types of messages rpc will pull
-type msgtype int
-const (
-    MONPUSH msgtype = iota
-)
+var distCh = make(chan *RpcPayload,1024)
+type Dispatcher byte
 
-type rpcPayload struct {
-    msgtype msgtype
-    payload interface{}
+// Give is where all data from other nodes. Give simply gives the payload
+// to this node to be dealt with
+func (b *Dispatcher) Give(pay RpcPayload, r *byte) error {
+    distCh <- &pay
+    return nil
 }
 
-func processMessage(pay *rpcPayload) {
-    switch pay.msgtype {
-        case MONPUSH:
-            //TODO try to make this pointer
-            monpay := pay.payload.(custom.MonPushPayload)
-            custom.MonPushAlert(&monpay)
-        default:
-            log.Println("Unknown rpcPayload.msgtype",pay.msgtype)
+func Setup() {
+    disp := new(Dispatcher)
+    rpc.Register(disp)
+    rpc.HandleHTTP()
+    l, e := net.Listen("tcp", ":1234")
+    if e != nil {
+        log.Fatal("listen error:", e)
+    }
+    go rpc.Accept(l)
+    //go http.Serve(l, nil)
+}
+
+func init() {
+    for i:=0; i<10; i++ {
+        go func(){
+            for pay := range distCh {
+                processMessage(pay)
+            }
+        }()
     }
 }
