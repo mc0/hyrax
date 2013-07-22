@@ -67,6 +67,7 @@ func (d *Dispatcher) AddToPool(node string, _ *struct{}) error {
     }
 
     client,err := rpc.Dial("tcp",node)
+    defer client.Close()
     if err != nil {
         return err
     }
@@ -91,6 +92,7 @@ func (d *Dispatcher) AddToPool(node string, _ *struct{}) error {
 // the remote node is identified as
 func (d *Dispatcher) RemoveNode(node string, _ *struct{}) error {
     client,err := rpc.Dial("tcp",node)
+    defer client.Close()
     if err != nil {
         return err
     }
