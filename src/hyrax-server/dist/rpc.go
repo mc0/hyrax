@@ -87,6 +87,60 @@ func (d *Dispatcher) AddToPool(node string, _ *struct{}) error {
     return nil
 }
 
+// Tells this node to disconnect from remote node, first getting the dist-addr
+// the remote node is identified as
+func (d *Dispatcher) RemoveNode(node string, _ *struct{}) error {
+    client,err := rpc.Dial("tcp",node)
+    if err != nil {
+        return err
+    }
+
+    var distAddr string
+    err = client.Call("Dispatcher.GetDistAddr",struct{}{},&distAddr)
+    if err != nil {
+        return err
+    }
+
+    disconnectFromNode(distAddr)
+    return nil
+}
+
+// Tells this node to tell the remote node to disconnect from it, then
+// disconnects from the remote node
+func (d *Dispatcher) RemoveNodeTwoWay(node string, _ *struct{}) error {
+    client,ok := getNode(node)
+    if !ok {
+        return errors.New("Remote node not currently connected")
+    }
+
+    err := client.Call("Dispatcher.RemoveNode",config.GetStr("dist-addr"),nil)
+    if err != nil {
+        return err
+    }
+
+    return d.RemoveNode(node,nil)
+}
+
+// Tells this node to disconnect from the pool it's in
+func (d *Dispatcher) RemoveFromPool(_ struct{}, _ *struct{}) error {
+    nodes :=  getNodes()
+    if len(nodes) <= 1 {
+        return errors.New("This node is not part of a pool")
+    }
+
+    thisDistAddr := config.GetStr("dist-addr")
+    for i := range nodes {
+        if nodes[i] == thisDistAddr { continue; }
+        err := d.RemoveNodeTwoWay(nodes[i],&struct{}{})
+        if err != nil {
+            return err
+        }
+    }
+
+    return nil
+}
+
+
 // Setup the dist listener and connect to it, adding it to the pool
 func Setup() error {
     disp := new(Dispatcher)

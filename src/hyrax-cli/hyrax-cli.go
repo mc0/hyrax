@@ -18,6 +18,9 @@ func main() {
     var addToPool string
     flag.StringVar(&addToPool,"add-to-pool","remote-addr","Adds this node to the pool the node at remote-addr is part of")
 
+    var removeFromPool bool
+    flag.BoolVar(&removeFromPool,"remove-from-pool",false,"Removes this node from whatever pool it's in")
+
     flag.Parse()
 
     client,err := rpc.Dial("tcp",distAddr)
@@ -35,8 +38,14 @@ func main() {
                 return
             }
             fmt.Println(ret)
-        case addToPool != "add-to-pool":
+        case addToPool != "remote-addr":
             err = client.Call("Dispatcher.AddToPool",addToPool,nil)
+            if err != nil {
+                fmt.Println(err)
+                return
+            }
+        case removeFromPool:
+            err = client.Call("Dispatcher.RemoveFromPool",struct{}{},nil)
             if err != nil {
                 fmt.Println(err)
                 return
