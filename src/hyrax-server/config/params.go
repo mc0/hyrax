@@ -37,5 +37,5 @@ var params = map[string]param{
     "dist-addr":
         param{ Description: "The hostname:port to have other hyrax instances connect to to reach this one",
                Type: STRING,
-               Default: "127.0.0.1:440" },
+               Default: "127.0.0.1:4400" },
 }
