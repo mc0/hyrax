@@ -5,7 +5,20 @@ import (
     "net/rpc"
     "hyrax-server/config"
     "errors"
+    "log"
 )
+
+func getRemoteDistAddr(node string) (string,error) {
+    client,err := rpc.Dial("tcp",node)
+    defer client.Close()
+    if err != nil {
+        return "",err
+    }
+
+    var distAddr string
+    err = client.Call("Dispatcher.GetDistAddr",struct{}{},&distAddr)
+    return distAddr,err
+}
 
 var distCh = make(chan *RpcPayload,1024)
 type Dispatcher byte
@@ -33,28 +46,33 @@ func (d *Dispatcher) GetDistAddr(_ struct{}, distAddr *string) error {
 // Tells this node to connect to remote node, first getting the dist-addr
 // the remote node wants to be identified as
 func (d *Dispatcher) AddNode(node string, _ *struct{}) error {
-    client,err := rpc.Dial("tcp",node)
+    distAddr,err := getRemoteDistAddr(node)
     if err != nil {
         return err
     }
 
-    var distAddr string
-    err = client.Call("Dispatcher.GetDistAddr",struct{}{},&distAddr)
-    if err != nil {
-        return err
-    }
-
+    log.Println("Generating a dist connection to:",distAddr)
     _,err = connectToNode(distAddr)
+    if err != nil {
+        log.Println("Error generating connection to",distAddr,":",err.Error())
+    }
     return err
 }
 
 // Tells this node to connect to remote node, and then tell the remote
 // node to connect back
 func (d *Dispatcher) AddNodeTwoWay(node string, _ *struct{}) error {
-    client,err := connectToNode(node)
+    err := d.AddNode(node,nil)
     if err != nil {
         return err
     }
+
+    distAddr,err := getRemoteDistAddr(node)
+    if err != nil {
+        return err
+    }
+
+    client,_ := getNode(distAddr)
 
     return client.Call("Dispatcher.AddNode",config.GetStr("dist-addr"),nil)
 }
@@ -91,19 +109,16 @@ func (d *Dispatcher) AddToPool(node string, _ *struct{}) error {
 // Tells this node to disconnect from remote node, first getting the dist-addr
 // the remote node is identified as
 func (d *Dispatcher) RemoveNode(node string, _ *struct{}) error {
-    client,err := rpc.Dial("tcp",node)
-    defer client.Close()
+    distAddr,err := getRemoteDistAddr(node)
     if err != nil {
         return err
     }
 
-    var distAddr string
-    err = client.Call("Dispatcher.GetDistAddr",struct{}{},&distAddr)
-    if err != nil {
-        return err
+    log.Println("Disconnecting from:",distAddr)
+    ok := disconnectFromNode(distAddr)
+    if !ok {
+        log.Println("No connection to",distAddr,"found")
     }
-
-    disconnectFromNode(distAddr)
     return nil
 }
 
@@ -134,8 +149,11 @@ func (d *Dispatcher) RemoveFromPool(_ struct{}, _ *struct{}) error {
     for i := range nodes {
         if nodes[i] == thisDistAddr { continue; }
         err := d.RemoveNodeTwoWay(nodes[i],&struct{}{})
+
+        //If there's an error just disconnect locally and continue, nothing we can do
         if err != nil {
-            return err
+            log.Println("Got error disconnecting from",nodes[i],":",err.Error())
+            disconnectFromNode(nodes[i])
         }
     }
 

@@ -37,13 +37,12 @@ func disconnectFromNode(node string) bool {
     defer nodeSetLock.Unlock()
 
     client,ok := nodeSet[node]
-    if !ok {
-        return false
+    if ok {
+        client.Close()
+        delete(nodeSet,node)
     }
 
-    client.Close()
-    delete(nodeSet,node)
-    return true
+    return ok
 }
 
 // getNode gets the *rpc.Client object for a given node name. The bool
