@@ -18,6 +18,7 @@ type Payload struct {
     Domain []byte   `json:"domain"`
     Id     []byte   `json:"id"`
     Name   []byte   `json:"name"`
+    State  map[string] string    `json:"state"`
     Secret []byte   `json:"secret"`
     Values [][]byte `json:"values"`
 }

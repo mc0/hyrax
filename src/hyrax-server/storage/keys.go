@@ -12,6 +12,8 @@ var CONN = []byte("conn")
 var DIRECT = []byte("direct")
 var WILDCARD = []byte{'*'}
 
+var SET = []byte("SET")
+var GET = []byte("GET")
 var SADD = []byte("SADD")
 var SREM = []byte("SREM")
 var SMEMBERS = []byte("SMEMBERS")
@@ -122,6 +124,23 @@ func DeconstructConnEkgVal(connekgval []byte) ([]byte,[]byte,[]byte) {
 func EkgWildcards() [][]byte {
     return [][]byte{ createKey(EKG,WILDCARD),
                      createKey(CONN,EKG,WILDCARD) }
+}
+
+////////////////////////////////////////////////////////////////////////
+// State
+////////////////////////////////////////////////////////////////////////
+
+var STATE = []byte("STATE")
+
+// ConnStateKey returns the key that will be used to store the state
+// for a connection
+func ConnStateKey(cid types.ConnId) []byte {
+    return createKey(CONN,STATE,cid.Serialize())
+}
+
+// ConnStateVal returns the value that will be stored for the state
+func ConnStateVal(domain, id, name []byte) []byte {
+    return createKey(domain, id, name)
 }
 
 ////////////////////////////////////////////////////////////////////////

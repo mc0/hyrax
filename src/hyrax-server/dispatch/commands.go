@@ -12,6 +12,7 @@ import (
 type CommandInfo struct {
     IsCustom,
     Modifies,
+    ModifiesState,
     ReturnsMap bool
 }
 
@@ -115,6 +116,9 @@ var commandMap = map[string]*CommandInfo{
     "emembers":         &CommandInfo{IsCustom:true},
     "ecard":            &CommandInfo{IsCustom:true},
     "eismember":        &CommandInfo{IsCustom:true},
+
+    //States
+    "stateset":             &CommandInfo{IsCustom:true,ModifiesState:true},
 }
 
 type customCmdFunc func(stypes.ConnId, *types.Payload)(interface{},error)

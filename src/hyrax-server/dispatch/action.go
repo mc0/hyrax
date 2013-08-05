@@ -73,6 +73,15 @@ func doCommandWrap(cid stypes.ConnId, cmd *types.Command) (interface{},error) {
         }
     }
 
+    if cinfo.ModifiesState {
+        if !CheckAuthState(pay) {
+            return nil, errors.New("cannot authenticate with key "+string(pay.Secret))
+        }
+        if !cmd.Quiet {
+            custom.MonMakeAlert(cmd)
+        }
+    }
+
     if len(pay.Id) == 0 {
         return nil,errors.New("missing key id")
     }
@@ -114,6 +123,13 @@ func doCustomCommand(cid stypes.ConnId, cmd *types.Command) (interface{},error) 
 func DoCleanup(cid stypes.ConnId) error {
     router.CleanId(cid)
     err := custom.CleanConnMon(cid)
-    if err != nil { return err }
-    return custom.CleanConnEkg(cid)
+    if err != nil {
+        return err
+    }
+    err = custom.CleanConnEkg(cid)
+    if err != nil {
+        return err
+    }
+    err = custom.CleanConnState(cid)
+    return err
 }
